@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>実施報告書 作成ツール</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --primary: #1a4d7c;
+    --primary-light: #e8f0f8;
+    --primary-mid: #3a7abf;
+    --accent: #d4a017;
+    --accent-light: #fdf6e3;
+    --bg: #f5f7fa;
+    --surface: #ffffff;
+    --surface2: #f0f4f8;
+    --border: #d0dae6;
+    --border-strong: #9ab0c8;
+    --text: #1a2733;
+    --text2: #4a6070;
+    --text3: #7a95a8;
+    --danger: #c0392b;
+    --danger-light: #fdecea;
+    --success: #1a7a4a;
+    --success-light: #e8f8ef;
+    --radius: 10px;
+    --shadow: 0 2px 12px rgba(26,77,124,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  /* ===== HEADER ===== */
+  .header {
+    background: var(--primary);
+    color: white;
+    padding: 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 16px rgba(26,77,124,0.25);
+  }
+  .header-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .header-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .header-title svg { opacity: 0.9; }
+  .header-subtitle { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+  /* ===== LAYOUT ===== */
+  .layout { max-width: 960px; margin: 0 auto; padding: 24px 24px 80px; }
+
+  /* ===== PROGRESS NAV ===== */
+  .progress-nav {
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    box-shadow: var(--shadow);
+  }
+  .nav-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .nav-step:hover { background: var(--primary-light); color: var(--primary); }
+  .nav-step.active { background: var(--primary); color: white; }
+  .nav-step .step-num {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+  }
+  .nav-step.active .step-num { background: rgba(255,255,255,0.25); }
+
+  /* ===== SECTION ===== */
+  .section {
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: none;
+  }
+  .section.visible { display: block; }
+  .section-header {
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--surface) 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+  }
+  .section-header-left { display: flex; align-items: center; gap: 10px; }
+  .section-badge {
+    background: var(--primary);
+    color: white;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--primary);
+    letter-spacing: 0.02em;
+  }
+  .section-body { padding: 20px; }
+  .section-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ===== FORM ELEMENTS ===== */
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .form-row.cols-2 { grid-template-columns: 1fr 1fr; }
+  .form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-row.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+  @media (max-width: 600px) {
+    .form-row.cols-2, .form-row.cols-3, .form-row.cols-4 { grid-template-columns: 1fr; }
+  }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text2);
+    letter-spacing: 0.03em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .field-label.editable-label { cursor: text; }
+  .field-label.editable-label:hover::after {
+    content: '✎';
+    font-size: 11px;
+    color: var(--primary-mid);
+    margin-left: 4px;
+  }
+  .label-edit-input {
+    font-size: 12px; font-weight: 700;
+    color: var(--text2);
+    border: 1px solid var(--primary-mid);
+    border-radius: 4px;
+    padding: 2px 6px;
+    background: white;
+    outline: none;
+    font-family: inherit;
+    width: 100%;
+  }
+  .required-mark { color: var(--danger); font-size: 10px; }
+  input[type="text"], input[type="date"], input[type="number"], input[type="time"],
+  select, textarea {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: white;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+  }
+  input[type="text"]:focus, input[type="date"]:focus, input[type="number"]:focus,
+  input[type="time"]:focus, select:focus, textarea:focus {
+    border-color: var(--primary-mid);
+    box-shadow: 0 0 0 3px rgba(58,122,191,0.12);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+  .input-hint { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  /* ===== INLINE FIELD EDIT ===== */
+  .field-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .btn-field-del {
+    font-size: 11px; color: var(--danger);
+    background: none; border: 1px solid transparent;
+    border-radius: 4px; padding: 2px 8px; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-field-del:hover { background: var(--danger-light); border-color: var(--danger); }
+
+  /* ===== TABLES ===== */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  table.form-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.form-table th {
+    background: var(--primary-light);
+    color: var(--primary);
+    font-weight: 700;
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+  }
+  table.form-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  table.form-table tr:last-child td { border-bottom: none; }
+  table.form-table tr:hover td { background: var(--primary-light); }
+  table.form-table input, table.form-table select, table.form-table textarea {
+    padding: 6px 8px;
+    font-size: 13px;
+    border-radius: 6px;
+    min-width: 60px;
+  }
+  .col-actions { width: 60px; text-align: center; }
+  .btn-row-del {
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: background 0.15s;
+  }
+  .btn-row-del:hover { background: var(--danger-light); }
+  .btn-row-add {
+    background: var(--primary-light);
+    color: var(--primary);
+    border: 1px dashed var(--primary-mid);
+    border-radius: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    justify-content: center;
+    margin-top: 8px;
+  }
+  .btn-row-add:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
+  /* ===== BUTTONS ===== */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+  .btn-primary:hover { background: var(--primary-mid); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,77,124,0.25); }
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--primary);
+    border: 1px solid var(--border-strong);
+  }
+  .btn-secondary:hover { background: var(--primary-light); border-color: var(--primary-mid); }
+  .btn-accent {
+    background: var(--accent);
+    color: white;
+  }
+  .btn-accent:hover { background: #b88a10; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(212,160,23,0.3); }
+  .btn-danger {
+    background: var(--danger);
+    color: white;
+  }
+  .btn-sm { padding: 6px 14px; font-size: 13px; }
+  .btn-xs { padding: 4px 10px; font-size: 12px; }
+  .btn-ghost { background: none; border: 1px solid transparent; color: var(--text2); }
+  .btn-ghost:hover { background: var(--surface2); }
+
+  /* ===== SECTION TOGGLE ===== */
+  .toggle-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text3);
+    cursor: pointer;
+    padding: 3px 8px;
+    font-size: 12px;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .toggle-btn:hover { background: var(--surface2); }
+
+  /* ===== ADD SECTION ===== */
+  .add-section-area {
+    background: var(--surface);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .add-section-area input {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+  }
+
+  /* ===== PHOTO UPLOAD ===== */
+  .photo-upload-area {
+    border: 2px dashed var(--border-strong);
+    border-radius: 10px;
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface2);
+  }
+  .photo-upload-area:hover, .photo-upload-area.drag-over {
+    border-color: var(--primary-mid);
+    background: var(--primary-light);
+  }
+  .photo-upload-area input { display: none; }
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .photo-item {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    aspect-ratio: 4/3;
+  }
+  .photo-item img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-caption-input {
+    width: 100%;
+    font-size: 11px;
+    padding: 5px 8px;
+    border: none;
+    border-top: 1px solid var(--border);
+    background: rgba(255,255,255,0.9);
+    font-family: inherit;
+    outline: none;
+  }
+  .photo-del {
+    position: absolute;
+    top: 4px; right: 4px;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 22px; height: 22px;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .photo-del:hover { background: var(--danger); }
+  .photo-num {
+    position: absolute;
+    top: 4px; left: 4px;
+    background: rgba(26,77,124,0.8);
+    color: white;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+  }
+
+  /* ===== PREVIEW MODAL ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 1000;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 16px;
+    overflow-y: auto;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 780px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+  }
+  .modal-header {
+    background: var(--primary);
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .modal-header h2 { font-size: 16px; font-weight: 700; }
+  .modal-body { padding: 24px; max-height: 70vh; overflow-y: auto; }
+  .modal-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ===== PREVIEW REPORT ===== */
+  .preview-report {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 13px;
+    line-height: 1.8;
+    color: #1a2733;
+  }
+  .preview-report h1 {
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    padding: 12px 0;
+    border-bottom: 2px solid var(--primary);
+    margin-bottom: 20px;
+  }
+  .preview-section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+    background: var(--primary);
+    padding: 6px 14px;
+    border-radius: 4px;
+    margin: 18px 0 10px;
+    letter-spacing: 0.04em;
+  }
+  .preview-kv { display: flex; gap: 0; margin-bottom: 4px; }
+  .preview-kv .pk { width: 130px; font-weight: 500; color: var(--text2); flex-shrink: 0; }
+  .preview-kv .pv { flex: 1; }
+  .preview-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; }
+  .preview-table th { background: var(--primary-light); color: var(--primary); padding: 7px 10px; border: 1px solid var(--border); font-weight: 700; }
+  .preview-table td { padding: 6px 10px; border: 1px solid var(--border); }
+  .preview-list { padding-left: 20px; }
+  .preview-list li { margin-bottom: 3px; }
+  .preview-photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+  .preview-photo-item img { width: 100%; border-radius: 6px; }
+  .preview-photo-item p { font-size: 11px; color: var(--text2); text-align: center; margin-top: 4px; }
+  .preview-text { white-space: pre-wrap; }
+
+  /* ===== TOAST ===== */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: var(--primary);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* ===== OUTPUT FORMAT PICKER ===== */
+  .format-picker {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .format-opt {
+    flex: 1;
+    min-width: 130px;
+    padding: 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    background: white;
+  }
+  .format-opt:hover { border-color: var(--primary-mid); background: var(--primary-light); }
+  .format-opt.selected { border-color: var(--primary); background: var(--primary-light); }
+  .format-opt .fmt-icon { font-size: 24px; margin-bottom: 6px; }
+  .format-opt .fmt-label { font-size: 13px; font-weight: 700; color: var(--primary); }
+  .format-opt .fmt-desc { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+  /* ===== CHIPS ===== */
+  .chip-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--primary-light);
+    color: var(--primary);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .chip-del { cursor: pointer; font-size: 14px; color: var(--text3); line-height: 1; }
+  .chip-del:hover { color: var(--danger); }
+
+  /* ===== COLLAPSIBLE ===== */
+  .section-body.collapsed { display: none; }
+  .collapse-icon { transition: transform 0.2s; }
+  .collapsed-header .collapse-icon { transform: rotate(-90deg); }
+
+  /* ===== SCROLL ===== */
+  html { scroll-behavior: smooth; }
+  :target { scroll-margin-top: 80px; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <div>
+      <div class="header-title">
+        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        実施報告書 作成ツール
+      </div>
+      <div class="header-subtitle">フォームに入力して、Word / Excel / PDF で出力できます</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary btn-sm" onclick="openPreview()">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        プレビュー
+      </button>
+      <button class="btn btn-accent btn-sm" onclick="openExportModal()">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        出力・保存
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- NAV -->
+  <nav class="progress-nav" id="progressNav">
+    <div class="nav-step active" onclick="showSection('sec-overview',this)"><span class="step-num">1</span>大会概要</div>
+    <div class="nav-step" onclick="showSection('sec-schedule',this)"><span class="step-num">2</span>当日の流れ</div>
+    <div class="nav-step" onclick="showSection('sec-prep',this)"><span class="step-num">3</span>事前準備</div>
+    <div class="nav-step" onclick="showSection('sec-game',this)"><span class="step-num">4</span>競技内容</div>
+    <div class="nav-step" onclick="showSection('sec-results',this)"><span class="step-num">5</span>結果</div>
+    <div class="nav-step" onclick="showSection('sec-review',this)"><span class="step-num">6</span>振り返り</div>
+    <div class="nav-step" onclick="showSection('sec-photos',this)"><span class="step-num">7</span>写真</div>
+    <div class="nav-step" onclick="showSection('sec-custom',this)"><span class="step-num">+</span>追加セクション</div>
+    <div class="nav-step" onclick="showSection('all',this)">
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      全表示
+    </div>
+  </nav>
+
+  <!-- ===================== SECTION 1: 大会概要 ===================== -->
+  <div class="section visible" id="sec-overview">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-header-left">
+        <div class="section-badge">1</div>
+        <span class="section-title">《大会概要》</span>
+      </div>
+      <div class="section-actions">
+        <span class="toggle-btn collapse-icon">▾</span>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="field" style="margin-bottom:16px;">
+        <label class="field-label">報告書タイトル <span class="required-mark">必須</span></label>
+        <input type="text" id="reportTitle" value="令和8年度 中央市ことぶきクラブ連合会豊富支会 第1回GG大会実施報告" placeholder="例：令和〇年度 〇〇大会実施報告">
+      </div>
+      <div id="overviewFields">
+        <!-- Dynamic fields will be rendered here -->
+      </div>
+      <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="addOverviewField()">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          項目を追加
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== SECTION 2: 当日の流れ ===================== -->
+  <div class="section" id="sec-schedule">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-header-left">
+        <div class="section-badge">2</div>
+        <span class="section-title">《当日の流れ》</span>
+      </div>
+      <div class="section-actions">
+        <span class="toggle-btn collapse-icon">▾</span>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="table-wrap">
+        <table class="form-table" id="scheduleTable">
+          <thead>
+            <tr>
+              <th style="width:100px;">時間</th>
+              <th>内容</th>
+              <th>備考</th>
+              <th class="col-actions"></th>
+            </tr>
+          </thead>
+          <tbody id="scheduleBody"></tbody>
+        </table>
+      </div>
+      <button class="btn-row-add" onclick="addScheduleRow()">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        行を追加
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================== SECTION 3: 事前準備 ===================== -->
+  <div class="section" id="sec-prep">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-header-left">
+        <div class="section-badge">3</div>
+        <span class="section-title">《事前準備》</span>
+      </div>
+      <div class="section-actions">
+        <span class="toggle-btn collapse-icon">▾</span>
+      </div>
+    </div>
+    <div class="section-body">
+      <div style="margin-bottom:16px;">
+        <div class="field-label" style="margin-bottom:8px;">物品リスト</div>
+        <div class="chip-group" id="itemChips"></div>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <input type="text" id="itemInput" placeholder="物品名を入力して追加" style="flex:1;" onkeydown="if(event.key==='Enter'){addChip('itemInput','itemChips');}">
+          <button class="btn btn-secondary btn-sm" onclick="addChip('itemInput','itemChips')">追加</button>
+        </div>
+      </div>
+      <div>
+        <div class="field-label" style="margin-bottom:8px;">事前に行ったこと</div>
+        <div class="chip-group" id="prepChips"></div>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <input type="text" id="prepInput" placeholder="事前作業を入力して追加" style="flex:1;" onkeydown="if(event.key==='Enter'){addChip('prepInput','prepChips');}">
+          <button class="btn btn-secondary btn-sm" onclick="addChip('prepInput','prepChips')">追加</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== SECTION 4: 競技内容 ===================== -->
+  <div class="section" id="sec-game">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-header-left">
+        <div class="section-badge">4</div>
+        <span class="section-title">《競技内容》</span>
+      </div>
+      <div class="section-actions">
+        <span class="toggle-btn collapse-icon">▾</span>
+      </div>
+    </div>
+    <div class="section-body">
+      <div id="gameFields"></div>
+      <button class="btn btn-secondary btn-sm" onclick="addGameField()" style="margin-top:8px;">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        項目を追加
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================== SECTION 5: 結果 ===================== -->
+  <div class="section" id="sec-results">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-header-left">
+        <div class="section-badge">5</div>
+        <span class="section-title">《結果》</span>
+      </div>
+      <div class="section-actions">
+        <span class="toggle-btn collapse-icon">▾</span>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="table-wrap">
+        <table class="form-table" id="resultsTable">
+          <thead>
+            <tr>
+              <th style="width:80px;">順位</th>
+              <th>氏名</th>
+              <th style="width:80px;">実打数</th>
+              <th style="width:60px;">１打</th>
+              <th style="width:60px;">２打</th>
+              <th style="width:80px;">合計打数</th>
+              <th style="width:120px;">備考</th>
+              <th class="col-actions"></th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+      <button class="btn-row-add" onclick="addResultRow()">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        行を追加
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================== SECTION 6: 振り返り ===================== -->
+  <div class="section" id="sec-review">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-header-left">
+        <div class="section-badge">6</div>
+        <span class="section-title">《振り返り》</span>
+      </div>
+      <div class="section-actions">
+        <span class="toggle-btn collapse-icon">▾</span>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="field" style="margin-bottom:16px;">
+        <label class="field-label">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:#1a7a4a;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          良かった点
+        </label>
+        <textarea id="goodPoints" rows="4" placeholder="良かった点を記入してください">早朝からの開催だったこと（終了の１１時頃には暑さが厳しかった）
+スタート位置やゴール位置のマークがあったこと、また、役員をはじめとしたグラウンドゴルフ部の方がコート準備を積極的に手伝ってくれたこと</textarea>
+      </div>
+      <div class="field">
+        <label class="field-label">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:#c0392b;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          問題点・改善点
+        </label>
+        <textarea id="issues" rows="4" placeholder="問題点・改善点を記入してください">当日キャンセルが7名出たため、７Hスタートのグループをなくした
+ホールインワン賞を15本用意したが、もう少し減らしてもよいか</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== SECTION 7: 写真 ===================== -->
+  <div class="section" id="sec-photos">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-header-left">
+        <div class="section-badge">7</div>
+        <span class="section-title">《写真》</span>
+      </div>
+      <div class="section-actions">
+        <span class="toggle-btn collapse-icon">▾</span>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="photo-upload-area" id="photoDropZone" onclick="document.getElementById('photoFileInput').click()" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="this.classList.remove('drag-over')">
+        <input type="file" id="photoFileInput" accept="image/*" multiple onchange="handlePhotoSelect(event)">
+        <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="color:var(--border-strong); margin-bottom:10px;">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <p style="font-weight:500; color:var(--text2); margin-bottom:4px;">クリックまたはドラッグ＆ドロップで写真を追加</p>
+        <p style="font-size:12px; color:var(--text3);">JPG / PNG / GIF 対応 ・ 複数同時選択可</p>
+      </div>
+      <div class="photo-grid" id="photoGrid"></div>
+    </div>
+  </div>
+
+  <!-- ===================== SECTION: カスタム ===================== -->
+  <div class="section" id="sec-custom">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-header-left">
+        <div class="section-badge" style="background:var(--accent);">+</div>
+        <span class="section-title">《追加セクション》</span>
+      </div>
+      <div class="section-actions">
+        <span class="toggle-btn collapse-icon">▾</span>
+      </div>
+    </div>
+    <div class="section-body">
+      <p style="font-size:13px; color:var(--text2); margin-bottom:16px;">必要に応じてセクションを追加できます。このセクションへの変更は今回のみ有効です。</p>
+      <div id="customSections"></div>
+      <div class="add-section-area">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--border-strong); flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        <input type="text" id="newSectionName" placeholder="新しいセクション名を入力（例：参加者名簿、会計報告…）">
+        <select id="newSectionType">
+          <option value="textarea">フリーテキスト</option>
+          <option value="table">テーブル形式</option>
+          <option value="list">リスト形式</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="addCustomSection()">追加</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /layout -->
+
+<!-- ===== PREVIEW MODAL ===== -->
+<div class="modal-overlay" id="previewModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>📄 報告書プレビュー</h2>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('previewModal')" style="color:white; border-color:rgba(255,255,255,0.3);">✕ 閉じる</button>
+    </div>
+    <div class="modal-body">
+      <div class="preview-report" id="previewContent"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('previewModal')">閉じる</button>
+      <button class="btn btn-accent" onclick="closeModal('previewModal'); openExportModal()">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        出力・保存
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== EXPORT MODAL ===== -->
+<div class="modal-overlay" id="exportModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>💾 出力・保存</h2>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('exportModal')" style="color:white; border-color:rgba(255,255,255,0.3);">✕ 閉じる</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px; color:var(--text2); margin-bottom:16px;">出力形式を選択してください。</p>
+      <div class="format-picker">
+        <div class="format-opt selected" onclick="selectFormat(this,'word')" data-format="word">
+          <div class="fmt-icon">📝</div>
+          <div class="fmt-label">Word (.docx)</div>
+          <div class="fmt-desc">編集可能な文書として保存</div>
+        </div>
+        <div class="format-opt" onclick="selectFormat(this,'excel')" data-format="excel">
+          <div class="fmt-icon">📊</div>
+          <div class="fmt-label">Excel (.xlsx)</div>
+          <div class="fmt-desc">表形式でデータを管理</div>
+        </div>
+        <div class="format-opt" onclick="selectFormat(this,'pdf')" data-format="pdf">
+          <div class="fmt-icon">📄</div>
+          <div class="fmt-label">PDF</div>
+          <div class="fmt-desc">印刷・配布に適した形式</div>
+        </div>
+        <div class="format-opt" onclick="selectFormat(this,'html')" data-format="html">
+          <div class="fmt-icon">🌐</div>
+          <div class="fmt-label">HTML</div>
+          <div class="fmt-desc">ブラウザで表示・印刷</div>
+        </div>
+      </div>
+      <div style="margin-top:16px; padding:14px; background:var(--surface2); border-radius:8px; border:1px solid var(--border);">
+        <div id="exportNote" style="font-size:13px; color:var(--text2);"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('exportModal')">キャンセル</button>
+      <button class="btn btn-accent" onclick="doExport()">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        <span id="exportBtnLabel">Word で出力</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+  <span id="toastMsg"></span>
+</div>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+let overviewFields = [
+  { id: 'ov1', label: '開催日時', value: '令和8年5月20日（水）8時30分～11時00分', type: 'text' },
+  { id: 'ov2', label: '会場', value: 'YSKe-comシルクパーク（中央市農村公園）', type: 'text' },
+  { id: 'ov3', label: '参加人数', value: '25名（申込36名）', type: 'text' },
+  { id: 'ov4', label: '天候', value: '晴れ', type: 'text' },
+];
+let gameFields = [
+  { id: 'gf1', label: 'ラウンド数', value: '3R' },
+  { id: 'gf2', label: 'コース設定', value: '８H' },
+  { id: 'gf3', label: 'ルール', value: '日本グラウンドゴルフ協会の競技規則による' },
+];
+let scheduleRows = [
+  { time: '8：00', content: '会場準備', note: '役員・事務局' },
+  { time: '8：15', content: '受付開始', note: '' },
+  { time: '8：30', content: '開会式', note: '会長あいさつ（桜井会長）　競技上の注意（中山体育部長）' },
+  { time: '8：45', content: '競技開始', note: '' },
+  { time: '', content: '１Rごと水分補給のため小休止', note: '' },
+  { time: '10：30', content: '集計', note: '' },
+  { time: '10：45', content: '閉会式/表彰', note: '閉会の言葉（佐塚副会長）' },
+  { time: '10：55', content: '片付け', note: '' },
+];
+let resultsRows = [
+  { rank: '優勝', name: '矢崎郁三', actual: '54', one: '2', two: '14', total: '48', note: '' },
+  { rank: '準優勝', name: '長田とみ子', actual: '60', one: '2', two: '9', total: '54', note: '' },
+  { rank: '３位', name: '佐野端子', actual: '62', one: '2', two: '8', total: '56', note: '' },
+  { rank: '４位', name: '志村さくよ', actual: '56', one: '0', two: '16', total: '56', note: '' },
+  { rank: '５位', name: '斉藤譲', actual: '57', one: '0', two: '16', total: '57', note: '' },
+  { rank: '６位', name: '渡辺光子', actual: '58', one: '0', two: '14', total: '58', note: '' },
+  { rank: '７位', name: '相原忠男', actual: '58', one: '0', two: '14', total: '58', note: '' },
+  { rank: '８位', name: '斉藤充子', actual: '65', one: '2', two: '8', total: '59', note: '' },
+  { rank: '９位', name: '有泉嘉彦', actual: '59', one: '0', two: '14', total: '59', note: '' },
+  { rank: '１０位', name: '中山忠義', actual: '59', one: '0', two: '14', total: '59', note: '' },
+  { rank: 'ブービー賞', name: '佐塚光子', actual: '', one: '', two: '', total: '', note: '' },
+  { rank: 'ラッキー賞', name: '長島幹夫', actual: '', one: '', two: '', total: '', note: '' },
+  { rank: '', name: '渡辺幸江', actual: '', one: '', two: '', total: '', note: '' },
+  { rank: '', name: '三井今朝江', actual: '', one: '', two: '', total: '', note: '' },
+  { rank: '', name: '角田清子', actual: '', one: '', two: '', total: '', note: '' },
+  { rank: '', name: '薬袋正美', actual: '', one: '', two: '', total: '', note: '' },
+];
+let itemChips = [
+  '景品（１位～１０位、ブービー賞、ホールインワン賞、ラッキー賞）',
+  '参加賞（ティッシュ、キッチンスポンジ）','飲料（お茶）','ワイヤレスマイク×2','アンプ',
+  'スコアカード・個票','バインダー（記録員用）','クラブ・ボールセット一式','ゴール×2（１～８H）',
+  'ボールペン（受付用）','ゴルフ鉛筆','集計用かご','救急セット','ゴミ袋',
+  '順位表（書き込み用）','養生テープ','受付貼り紙','受付用名簿','マーカー','電卓','抽選箱'
+];
+let prepChips = [
+  '会場予約（中山体育部長に空き状況を確認してもらった）',
+  '参加者募集',
+  '組み合わせ作成（キャンセルが相次ぎ、作成し直しあり）',
+  '中山体育部長に事前確認してもらった',
+  '賞品・参加賞購入',
+  '受付簿作成'
+];
+let photos = [];
+let customSections = [];
+let selectedFormat = 'word';
+let customSectionCount = 0;
+
+// ============================================================
+//  INIT
+// ============================================================
+function init() {
+  renderOverviewFields();
+  renderGameFields();
+  renderScheduleTable();
+  renderResultsTable();
+  renderChips('itemChips', itemChips);
+  renderChips('prepChips', prepChips);
+  updateExportNote();
+}
+
+// ============================================================
+//  NAVIGATION
+// ============================================================
+function showSection(id, el) {
+  if(id === 'all') {
+    document.querySelectorAll('.section').forEach(s => s.classList.add('visible'));
+  } else {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
+    document.getElementById(id).classList.add('visible');
+    document.getElementById(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  document.querySelectorAll('.nav-step').forEach(n => n.classList.remove('active'));
+  if(el) el.classList.add('active');
+}
+
+function toggleSection(header) {
+  const body = header.nextElementSibling;
+  const icon = header.querySelector('.collapse-icon');
+  body.classList.toggle('collapsed');
+  header.classList.toggle('collapsed-header');
+}
+
+// ============================================================
+//  OVERVIEW FIELDS
+// ============================================================
+function renderOverviewFields() {
+  const c = document.getElementById('overviewFields');
+  const rows = [];
+  for(let i = 0; i < overviewFields.length; i += 2) {
+    const pair = overviewFields.slice(i, i+2);
+    rows.push(pair);
+  }
+  c.innerHTML = rows.map((pair, ri) => `
+    <div class="form-row cols-2" style="margin-bottom:12px;">
+      ${pair.map(f => `
+        <div class="field">
+          <label class="field-label editable-label" ondblclick="editLabel(this,'${f.id}')" title="ダブルクリックでラベルを編集">${f.label}</label>
+          <input type="text" id="input_${f.id}" value="${f.value}" oninput="updateFieldVal('${f.id}', this.value)">
+          <div class="field-controls">
+            <button class="btn-field-del" onclick="removeOverviewField('${f.id}')">✕ 削除</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+function updateFieldVal(id, val) {
+  const f = overviewFields.find(x => x.id === id);
+  if(f) f.value = val;
+}
+function editLabel(labelEl, fieldId) {
+  const current = labelEl.textContent.trim();
+  const inp = document.createElement('input');
+  inp.className = 'label-edit-input';
+  inp.value = current;
+  inp.onblur = () => {
+    const f = overviewFields.find(x => x.id === fieldId);
+    if(f && inp.value.trim()) f.label = inp.value.trim();
+    renderOverviewFields();
+  };
+  inp.onkeydown = (e) => { if(e.key === 'Enter') inp.blur(); };
+  labelEl.replaceWith(inp);
+  inp.focus();
+  inp.select();
+}
+function addOverviewField() {
+  const id = 'ov_' + Date.now();
+  overviewFields.push({ id, label: '項目名', value: '' });
+  renderOverviewFields();
+  setTimeout(() => {
+    const el = document.getElementById('input_' + id);
+    if(el) el.focus();
+  }, 50);
+}
+function removeOverviewField(id) {
+  overviewFields = overviewFields.filter(f => f.id !== id);
+  renderOverviewFields();
+}
+
+// ============================================================
+//  GAME FIELDS
+// ============================================================
+function renderGameFields() {
+  const c = document.getElementById('gameFields');
+  c.innerHTML = gameFields.map(f => `
+    <div class="form-row cols-2" style="margin-bottom:10px;">
+      <div class="field">
+        <label class="field-label editable-label" ondblclick="editGameLabel(this,'${f.id}')" title="ダブルクリックでラベルを編集">${f.label}</label>
+      </div>
+      <div class="field">
+        <div style="display:flex; gap:6px;">
+          <input type="text" id="ginput_${f.id}" value="${f.value}" oninput="updateGameVal('${f.id}', this.value)" style="flex:1;">
+          <button class="btn-field-del" onclick="removeGameField('${f.id}')" style="white-space:nowrap;">✕ 削除</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+function updateGameVal(id, val) {
+  const f = gameFields.find(x => x.id === id);
+  if(f) f.value = val;
+}
+function editGameLabel(labelEl, fieldId) {
+  const current = labelEl.textContent.trim();
+  const inp = document.createElement('input');
+  inp.className = 'label-edit-input';
+  inp.value = current;
+  inp.onblur = () => {
+    const f = gameFields.find(x => x.id === fieldId);
+    if(f && inp.value.trim()) f.label = inp.value.trim();
+    renderGameFields();
+  };
+  inp.onkeydown = (e) => { if(e.key === 'Enter') inp.blur(); };
+  labelEl.replaceWith(inp);
+  inp.focus(); inp.select();
+}
+function addGameField() {
+  gameFields.push({ id: 'gf_' + Date.now(), label: '項目名', value: '' });
+  renderGameFields();
+}
+function removeGameField(id) {
+  gameFields = gameFields.filter(f => f.id !== id);
+  renderGameFields();
+}
+
+// ============================================================
+//  SCHEDULE TABLE
+// ============================================================
+function renderScheduleTable() {
+  const tbody = document.getElementById('scheduleBody');
+  tbody.innerHTML = scheduleRows.map((r, i) => `
+    <tr>
+      <td><input type="text" value="${r.time}" oninput="scheduleRows[${i}].time=this.value" style="width:100%;"></td>
+      <td><input type="text" value="${r.content}" oninput="scheduleRows[${i}].content=this.value" style="width:100%;"></td>
+      <td><input type="text" value="${r.note}" oninput="scheduleRows[${i}].note=this.value" style="width:100%;"></td>
+      <td class="col-actions"><button class="btn-row-del" onclick="delScheduleRow(${i})" title="削除">✕</button></td>
+    </tr>
+  `).join('');
+}
+function addScheduleRow() {
+  scheduleRows.push({ time: '', content: '', note: '' });
+  renderScheduleTable();
+  const rows = document.getElementById('scheduleBody').querySelectorAll('tr');
+  rows[rows.length-1].querySelector('input').focus();
+}
+function delScheduleRow(i) {
+  scheduleRows.splice(i, 1);
+  renderScheduleTable();
+}
+
+// ============================================================
+//  RESULTS TABLE
+// ============================================================
+function renderResultsTable() {
+  const tbody = document.getElementById('resultsBody');
+  tbody.innerHTML = resultsRows.map((r, i) => `
+    <tr>
+      <td><input type="text" value="${r.rank}" oninput="resultsRows[${i}].rank=this.value" style="width:100%;"></td>
+      <td><input type="text" value="${r.name}" oninput="resultsRows[${i}].name=this.value" style="width:100%;"></td>
+      <td><input type="number" value="${r.actual}" oninput="resultsRows[${i}].actual=this.value" style="width:70px;"></td>
+      <td><input type="number" value="${r.one}" oninput="resultsRows[${i}].one=this.value" style="width:50px;"></td>
+      <td><input type="number" value="${r.two}" oninput="resultsRows[${i}].two=this.value" style="width:50px;"></td>
+      <td><input type="number" value="${r.total}" oninput="resultsRows[${i}].total=this.value" style="width:70px;"></td>
+      <td><input type="text" value="${r.note}" oninput="resultsRows[${i}].note=this.value" style="width:100%;"></td>
+      <td class="col-actions"><button class="btn-row-del" onclick="delResultRow(${i})" title="削除">✕</button></td>
+    </tr>
+  `).join('');
+}
+function addResultRow() {
+  resultsRows.push({ rank: '', name: '', actual: '', one: '', two: '', total: '', note: '' });
+  renderResultsTable();
+  const rows = document.getElementById('resultsBody').querySelectorAll('tr');
+  rows[rows.length-1].querySelector('input').focus();
+}
+function delResultRow(i) {
+  resultsRows.splice(i, 1);
+  renderResultsTable();
+}
+
+// ============================================================
+//  CHIPS
+// ============================================================
+function renderChips(containerId, arr) {
+  const c = document.getElementById(containerId);
+  c.innerHTML = arr.map((item, i) => `
+    <span class="chip">
+      ${item}
+      <span class="chip-del" onclick="removeChipFromArray('${containerId}', ${i})">×</span>
+    </span>
+  `).join('');
+}
+function removeChipFromArray(containerId, idx) {
+  if(containerId === 'itemChips') { itemChips.splice(idx, 1); renderChips('itemChips', itemChips); }
+  else { prepChips.splice(idx, 1); renderChips('prepChips', prepChips); }
+}
+function addChip(inputId, containerId) {
+  const inp = document.getElementById(inputId);
+  const val = inp.value.trim();
+  if(!val) return;
+  if(containerId === 'itemChips') { itemChips.push(val); renderChips('itemChips', itemChips); }
+  else { prepChips.push(val); renderChips('prepChips', prepChips); }
+  inp.value = '';
+  inp.focus();
+}
+
+// ============================================================
+//  PHOTOS
+// ============================================================
+function handlePhotoSelect(e) {
+  Array.from(e.target.files).forEach(f => addPhoto(f));
+  e.target.value = '';
+}
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('photoDropZone').classList.add('drag-over');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('photoDropZone').classList.remove('drag-over');
+  Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')).forEach(f => addPhoto(f));
+}
+function addPhoto(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    photos.push({ src: e.target.result, caption: '', name: file.name });
+    renderPhotoGrid();
+  };
+  reader.readAsDataURL(file);
+}
+function renderPhotoGrid() {
+  const grid = document.getElementById('photoGrid');
+  grid.innerHTML = photos.map((p, i) => `
+    <div class="photo-item">
+      <span class="photo-num">${i+1}</span>
+      <img src="${p.src}" alt="${p.caption || '写真'+(i+1)}">
+      <button class="photo-del" onclick="removePhoto(${i})" title="削除">✕</button>
+      <input class="photo-caption-input" type="text" placeholder="キャプション（任意）" value="${p.caption}" oninput="photos[${i}].caption=this.value">
+    </div>
+  `).join('');
+}
+function removePhoto(i) {
+  photos.splice(i, 1);
+  renderPhotoGrid();
+}
+
+// ============================================================
+//  CUSTOM SECTIONS
+// ============================================================
+function addCustomSection() {
+  const name = document.getElementById('newSectionName').value.trim();
+  const type = document.getElementById('newSectionType').value;
+  if(!name) { showToast('セクション名を入力してください'); return; }
+  customSectionCount++;
+  const cs = { id: 'cs_' + customSectionCount, name, type, content: '', rows: [{ a: '', b: '', c: '' }], items: [] };
+  customSections.push(cs);
+  renderCustomSections();
+  document.getElementById('newSectionName').value = '';
+  showToast(`「${name}」を追加しました`);
+}
+function removeCustomSection(id) {
+  customSections = customSections.filter(s => s.id !== id);
+  renderCustomSections();
+}
+function renderCustomSections() {
+  const c = document.getElementById('customSections');
+  c.innerHTML = customSections.map(cs => `
+    <div style="border:1px solid var(--border); border-radius:10px; margin-bottom:16px; overflow:hidden;">
+      <div style="background:var(--accent-light); border-bottom:1px solid var(--border); padding:12px 16px; display:flex; align-items:center; justify-content:space-between;">
+        <span style="font-weight:700; color:var(--primary); font-size:14px;">《${cs.name}》</span>
+        <button class="btn btn-danger btn-xs" onclick="removeCustomSection('${cs.id}')">✕ 削除</button>
+      </div>
+      <div style="padding:16px;">
+        ${cs.type === 'textarea' ? `
+          <textarea rows="5" placeholder="内容を入力してください" oninput="updateCustomContent('${cs.id}',this.value)">${cs.content}</textarea>
+        ` : cs.type === 'list' ? `
+          <div id="csChips_${cs.id}" class="chip-group"></div>
+          <div style="display:flex; gap:8px; margin-top:10px;">
+            <input type="text" id="csInput_${cs.id}" placeholder="項目を入力して追加" style="flex:1;" onkeydown="if(event.key==='Enter'){addCSChip('${cs.id}');}">
+            <button class="btn btn-secondary btn-sm" onclick="addCSChip('${cs.id}')">追加</button>
+          </div>
+        ` : `
+          <div class="table-wrap">
+            <table class="form-table">
+              <thead><tr><th>項目A</th><th>項目B</th><th>備考</th><th class="col-actions"></th></tr></thead>
+              <tbody id="csTable_${cs.id}">
+                ${cs.rows.map((r,i) => `<tr>
+                  <td><input type="text" value="${r.a}" oninput="updateCSRow('${cs.id}',${i},'a',this.value)" style="width:100%;"></td>
+                  <td><input type="text" value="${r.b}" oninput="updateCSRow('${cs.id}',${i},'b',this.value)" style="width:100%;"></td>
+                  <td><input type="text" value="${r.c}" oninput="updateCSRow('${cs.id}',${i},'c',this.value)" style="width:100%;"></td>
+                  <td class="col-actions"><button class="btn-row-del" onclick="delCSRow('${cs.id}',${i})">✕</button></td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+          <button class="btn-row-add" onclick="addCSRow('${cs.id}')">＋ 行を追加</button>
+        `}
+      </div>
+    </div>
+  `).join('');
+  // re-render chips
+  customSections.forEach(cs => {
+    if(cs.type === 'list') {
+      const el = document.getElementById('csChips_' + cs.id);
+      if(el) el.innerHTML = cs.items.map((item, i) => `
+        <span class="chip">${item}<span class="chip-del" onclick="removeCSChip('${cs.id}',${i})">×</span></span>
+      `).join('');
+    }
+  });
+}
+function updateCustomContent(id, val) {
+  const cs = customSections.find(s => s.id === id);
+  if(cs) cs.content = val;
+}
+function addCSChip(id) {
+  const cs = customSections.find(s => s.id === id);
+  const inp = document.getElementById('csInput_' + id);
+  if(!cs || !inp || !inp.value.trim()) return;
+  cs.items.push(inp.value.trim());
+  inp.value = '';
+  renderCustomSections();
+}
+function removeCSChip(id, i) {
+  const cs = customSections.find(s => s.id === id);
+  if(cs) { cs.items.splice(i, 1); renderCustomSections(); }
+}
+function updateCSRow(id, i, key, val) {
+  const cs = customSections.find(s => s.id === id);
+  if(cs) cs.rows[i][key] = val;
+}
+function addCSRow(id) {
+  const cs = customSections.find(s => s.id === id);
+  if(cs) { cs.rows.push({ a:'', b:'', c:'' }); renderCustomSections(); }
+}
+function delCSRow(id, i) {
+  const cs = customSections.find(s => s.id === id);
+  if(cs && cs.rows.length > 1) { cs.rows.splice(i, 1); renderCustomSections(); }
+}
+
+// ============================================================
+//  MODALS
+// ============================================================
+function openPreview() {
+  const content = buildPreviewHTML();
+  document.getElementById('previewContent').innerHTML = content;
+  document.getElementById('previewModal').classList.add('open');
+}
+function openExportModal() {
+  document.getElementById('exportModal').classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// ============================================================
+//  PREVIEW HTML
+// ============================================================
+function buildPreviewHTML() {
+  const title = document.getElementById('reportTitle').value;
+  let html = `<h1>${title}</h1>`;
+
+  // 概要
+  html += `<div class="preview-section-title">大会概要</div>`;
+  overviewFields.forEach(f => {
+    html += `<div class="preview-kv"><span class="pk">${f.label}</span><span class="pv">${f.value}</span></div>`;
+  });
+
+  // 当日の流れ
+  if(scheduleRows.length > 0) {
+    html += `<div class="preview-section-title">当日の流れ</div>`;
+    html += `<table class="preview-table"><thead><tr><th>時間</th><th>内容</th><th>備考</th></tr></thead><tbody>`;
+    scheduleRows.forEach(r => {
+      html += `<tr><td>${r.time}</td><td>${r.content}</td><td>${r.note}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
+  // 事前準備
+  if(itemChips.length > 0 || prepChips.length > 0) {
+    html += `<div class="preview-section-title">事前準備</div>`;
+    if(itemChips.length > 0) {
+      html += `<p style="font-weight:500; margin-bottom:4px;">【物品】</p><ul class="preview-list">`;
+      itemChips.forEach(i => html += `<li>${i}</li>`);
+      html += `</ul>`;
+    }
+    if(prepChips.length > 0) {
+      html += `<p style="font-weight:500; margin:10px 0 4px;">【事前に行ったこと】</p><ul class="preview-list">`;
+      prepChips.forEach(i => html += `<li>${i}</li>`);
+      html += `</ul>`;
+    }
+  }
+
+  // 競技内容
+  if(gameFields.length > 0) {
+    html += `<div class="preview-section-title">競技内容</div>`;
+    html += `<table class="preview-table"><tbody>`;
+    gameFields.forEach(f => {
+      html += `<tr><td style="font-weight:500; width:40%;">${f.label}</td><td>${f.value}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
+  // 結果
+  if(resultsRows.length > 0) {
+    html += `<div class="preview-section-title">結果</div>`;
+    html += `<table class="preview-table"><thead><tr><th>順位</th><th>氏名</th><th>実打数</th><th>１打</th><th>２打</th><th>合計打数</th><th>備考</th></tr></thead><tbody>`;
+    resultsRows.forEach(r => {
+      html += `<tr><td>${r.rank}</td><td>${r.name}</td><td>${r.actual}</td><td>${r.one}</td><td>${r.two}</td><td>${r.total}</td><td>${r.note}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
+  // 振り返り
+  const good = document.getElementById('goodPoints').value;
+  const issues = document.getElementById('issues').value;
+  if(good || issues) {
+    html += `<div class="preview-section-title">振り返り</div>`;
+    if(good) { html += `<p style="font-weight:500; margin-bottom:4px;">【良かった点】</p><p class="preview-text">${good}</p>`; }
+    if(issues) { html += `<p style="font-weight:500; margin:10px 0 4px;">【問題点・改善点】</p><p class="preview-text">${issues}</p>`; }
+  }
+
+  // 写真
+  if(photos.length > 0) {
+    html += `<div class="preview-section-title">写真</div>`;
+    html += `<div class="preview-photo-grid">`;
+    photos.forEach((p, i) => {
+      html += `<div class="preview-photo-item">
+        <img src="${p.src}" alt="${p.caption || '写真'+(i+1)}">
+        <p>${p.caption || '写真 '+(i+1)}</p>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // カスタムセクション
+  customSections.forEach(cs => {
+    html += `<div class="preview-section-title">${cs.name}</div>`;
+    if(cs.type === 'textarea') {
+      html += `<p class="preview-text">${cs.content}</p>`;
+    } else if(cs.type === 'list') {
+      html += `<ul class="preview-list">${cs.items.map(i => `<li>${i}</li>`).join('')}</ul>`;
+    } else {
+      html += `<table class="preview-table"><thead><tr><th>項目A</th><th>項目B</th><th>備考</th></tr></thead><tbody>`;
+      cs.rows.forEach(r => { html += `<tr><td>${r.a}</td><td>${r.b}</td><td>${r.c}</td></tr>`; });
+      html += `</tbody></table>`;
+    }
+  });
+
+  return html;
+}
+
+// ============================================================
+//  EXPORT
+// ============================================================
+function selectFormat(el, fmt) {
+  document.querySelectorAll('.format-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedFormat = fmt;
+  updateExportNote();
+}
+function updateExportNote() {
+  const notes = {
+    word: '📝 Word形式（.docx）で出力します。Microsoft Word や LibreOffice で開いて編集できます。',
+    excel: '📊 Excel形式（.xlsx）で出力します。各セクションをシートに分けて整理します。',
+    pdf: '📄 印刷ダイアログを開きます。「PDFとして保存」を選択してください。',
+    html: '🌐 HTMLファイルとして保存します。ブラウザで表示・印刷できます。'
+  };
+  const labels = { word: 'Word で出力', excel: 'Excel で出力', pdf: 'PDF で印刷', html: 'HTML で保存' };
+  document.getElementById('exportNote').textContent = notes[selectedFormat] || '';
+  document.getElementById('exportBtnLabel').textContent = labels[selectedFormat] || '出力';
+}
+function doExport() {
+  closeModal('exportModal');
+  if(selectedFormat === 'word') exportWord();
+  else if(selectedFormat === 'excel') exportExcel();
+  else if(selectedFormat === 'pdf') exportPDF();
+  else if(selectedFormat === 'html') exportHTML();
+}
+
+// -- WORD --
+function exportWord() {
+  const title = document.getElementById('reportTitle').value;
+  let lines = [];
+  lines.push(title);
+  lines.push('');
+  lines.push('【大会概要】');
+  overviewFields.forEach(f => lines.push(`${f.label}：${f.value}`));
+  lines.push('');
+  lines.push('【当日の流れ】');
+  lines.push(['時間','内容','備考'].join('\t'));
+  scheduleRows.forEach(r => lines.push([r.time, r.content, r.note].join('\t')));
+  lines.push('');
+  lines.push('【事前準備】');
+  lines.push('◆物品');
+  itemChips.forEach(i => lines.push('・' + i));
+  lines.push('◆事前に行ったこと');
+  prepChips.forEach(i => lines.push('・' + i));
+  lines.push('');
+  lines.push('【競技内容】');
+  gameFields.forEach(f => lines.push(`${f.label}：${f.value}`));
+  lines.push('');
+  lines.push('【結果】');
+  lines.push(['順位','氏名','実打数','１打','２打','合計打数','備考'].join('\t'));
+  resultsRows.forEach(r => lines.push([r.rank, r.name, r.actual, r.one, r.two, r.total, r.note].join('\t')));
+  lines.push('');
+  lines.push('【振り返り】');
+  lines.push('◆良かった点');
+  lines.push(document.getElementById('goodPoints').value);
+  lines.push('◆問題点・改善点');
+  lines.push(document.getElementById('issues').value);
+  customSections.forEach(cs => {
+    lines.push(''); lines.push(`【${cs.name}】`);
+    if(cs.type === 'textarea') lines.push(cs.content);
+    else if(cs.type === 'list') cs.items.forEach(i => lines.push('・' + i));
+    else cs.rows.forEach(r => lines.push([r.a, r.b, r.c].join('\t')));
+  });
+  const txt = lines.join('\n');
+  const blob = new Blob(['\uFEFF' + txt], { type: 'application/msword;charset=utf-8' });
+  const fn = (title || '実施報告書').replace(/[\\/:*?"<>|]/g,'_') + '.doc';
+  downloadBlob(blob, fn);
+  showToast('Word形式で出力しました');
+}
+
+// -- EXCEL --
+function exportExcel() {
+  const title = document.getElementById('reportTitle').value;
+  const wb = XLSX.utils.book_new();
+
+  // 概要シート
+  const ovData = [[title], [], ['項目', '内容']];
+  overviewFields.forEach(f => ovData.push([f.label, f.value]));
+  ovData.push([], ['競技内容'], ['項目', '内容']);
+  gameFields.forEach(f => ovData.push([f.label, f.value]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ovData), '概要・競技内容');
+
+  // スケジュール
+  const schData = [['時間', '内容', '備考']];
+  scheduleRows.forEach(r => schData.push([r.time, r.content, r.note]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(schData), '当日の流れ');
+
+  // 結果
+  const resData = [['順位', '氏名', '実打数', '１打', '２打', '合計打数', '備考']];
+  resultsRows.forEach(r => resData.push([r.rank, r.name, r.actual, r.one, r.two, r.total, r.note]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resData), '結果');
+
+  // 準備
+  const prepData = [['物品リスト'], ...itemChips.map(i => [i]), [], ['事前準備'], ...prepChips.map(i => [i])];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(prepData), '事前準備');
+
+  // 振り返り
+  const revData = [['良かった点', document.getElementById('goodPoints').value], ['問題点・改善点', document.getElementById('issues').value]];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(revData), '振り返り');
+
+  // カスタム
+  customSections.forEach(cs => {
+    let csData = [];
+    if(cs.type === 'textarea') csData = [[cs.content]];
+    else if(cs.type === 'list') csData = cs.items.map(i => [i]);
+    else { csData = [['項目A','項目B','備考']]; cs.rows.forEach(r => csData.push([r.a,r.b,r.c])); }
+    try { XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(csData), cs.name.slice(0,31)); } catch(e) {}
+  });
+
+  const fn = (title || '実施報告書').replace(/[\\/:*?"<>|\[\]]/g,'_') + '.xlsx';
+  XLSX.writeFile(wb, fn);
+  showToast('Excel形式で出力しました');
+}
+
+// -- PDF --
+function exportPDF() {
+  const content = buildPreviewHTML();
+  const printWin = window.open('', '_blank');
+  printWin.document.write(`<!DOCTYPE html><html lang="ja"><head>
+    <meta charset="UTF-8">
+    <title>${document.getElementById('reportTitle').value}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+      body { font-family: 'Noto Serif JP', serif; font-size: 12px; color: #1a2733; padding: 20mm; line-height: 1.8; }
+      h1 { font-size: 16px; text-align: center; border-bottom: 2px solid #1a4d7c; padding-bottom: 8px; margin-bottom: 20px; }
+      .preview-section-title { font-size: 13px; font-weight: 700; background: #1a4d7c; color: white; padding: 5px 12px; border-radius: 3px; margin: 16px 0 8px; }
+      .preview-kv { display: flex; margin-bottom: 4px; }
+      .preview-kv .pk { width: 130px; font-weight: 500; color: #4a6070; }
+      table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 8px; }
+      th { background: #e8f0f8; color: #1a4d7c; padding: 6px 8px; border: 1px solid #d0dae6; font-weight: 700; }
+      td { padding: 5px 8px; border: 1px solid #d0dae6; }
+      ul { padding-left: 18px; }
+      li { margin-bottom: 2px; }
+      .preview-photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+      .preview-photo-item img { width: 100%; border-radius: 4px; }
+      .preview-photo-item p { font-size: 10px; color: #4a6070; text-align: center; margin-top: 3px; }
+      .preview-text { white-space: pre-wrap; }
+      @media print { body { padding: 0; } }
+    </style>
+  </head><body>${content}</body></html>`);
+  printWin.document.close();
+  printWin.onload = () => { printWin.print(); };
+  showToast('印刷ダイアログを開きました');
+}
+
+// -- HTML --
+function exportHTML() {
+  const title = document.getElementById('reportTitle').value;
+  const content = buildPreviewHTML();
+  const html = `<!DOCTYPE html><html lang="ja"><head>
+    <meta charset="UTF-8">
+    <title>${title}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+      body { font-family: 'Noto Serif JP', serif; font-size: 13px; color: #1a2733; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.8; }
+      h1 { font-size: 18px; text-align: center; border-bottom: 2px solid #1a4d7c; padding-bottom: 10px; margin-bottom: 24px; }
+      .preview-section-title { font-size: 14px; font-weight: 700; background: #1a4d7c; color: white; padding: 6px 14px; border-radius: 4px; margin: 20px 0 10px; }
+      .preview-kv { display: flex; margin-bottom: 4px; }
+      .preview-kv .pk { width: 130px; font-weight: 500; color: #4a6070; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px; }
+      th { background: #e8f0f8; color: #1a4d7c; padding: 8px 10px; border: 1px solid #d0dae6; font-weight: 700; }
+      td { padding: 7px 10px; border: 1px solid #d0dae6; }
+      ul.preview-list { padding-left: 20px; }
+      li { margin-bottom: 3px; }
+      .preview-photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+      .preview-photo-item img { width: 100%; border-radius: 6px; }
+      .preview-photo-item p { font-size: 11px; color: #4a6070; text-align: center; margin-top: 4px; }
+      .preview-text { white-space: pre-wrap; }
+    </style>
+  </head><body>${content}</body></html>`;
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const fn = (title || '実施報告書').replace(/[\\/:*?"<>|]/g,'_') + '.html';
+  downloadBlob(blob, fn);
+  showToast('HTMLファイルを保存しました');
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ============================================================
+//  TOAST
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  t.style.display = 'flex';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.display = 'none'; }, 2800);
+}
+
+// ============================================================
+//  CLOSE MODAL ON OVERLAY CLICK
+// ============================================================
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if(e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+// ============================================================
+//  BOOT
+// ============================================================
+init();
+</script>
+</body>
+</html>
